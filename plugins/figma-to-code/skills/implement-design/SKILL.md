@@ -35,6 +35,7 @@ Ask with AskUserQuestion (max 4 questions per call): question 1 first, then the 
 
 **Official Figma MCP** (tools named `…figma…get_design_context`, from the official `figma` plugin), if installed:
 - `get_design_context(fileKey, nodeId)` with the screenshot included.
+- `get_variable_defs(fileKey, nodeId)` → the Figma variables (design tokens) the frame uses, by name.
 - If it errors with **"don't have edit access"** or a **rate limit**: do NOT retry it — each call spends the user's monthly quota (Starter/View/Collab seats get very few). Go to the fallback.
 
 **Fallback: `figma-view` MCP** (this plugin; needs only view access + `FIGMA_API_KEY`):
@@ -47,13 +48,22 @@ Ask with AskUserQuestion (max 4 questions per call): question 1 first, then the 
 
 ## 4. Implement
 
-- Build with the project's own stack: its components, tokens, form library, icon set, routing. Map Figma hex values onto existing tokens when they match exactly; add a token only when none matches.
+- Build with the project's own stack: its components, tokens, form library, icon set, routing.
+- **Tokens: map the variable, not the value.** Official path: map each Figma variable to the project token by name (`Theme/text-primary` → `--text-primary` / `text-text-primary`); the collection prefix is noise, the leaf name is the key. Bind the token, not the light/dark value — the app's theme switch handles modes. `figma-view` path has no variable bindings, so map by exact value instead. Either way, add a token only when none matches.
+- **Instances → components.** A component instance's name and variant properties tell you which project component to use and which props to pass. Hidden sibling layers and other variants hint at hover/active/disabled/selected states — implement those states; selected vs unselected is one component with a prop, not two elements.
 - Translate absolute positions into real layout (flex/grid). If responsive, make it work at every screen size the user gave.
 - Wire the obvious interactions: inputs, submit, show/hide password, links (`<a href>` / framework `Link`, not click-handlers, for navigation).
 - Use every asset in its design slot at its design size. Never redraw an exported asset; never ship a temporary Figma asset URL.
 - **Trust the rendered frame over node properties.** Two traps seen in practice:
   - `textAlignHorizontal: CENTER` on a hug-width text node is invisible — the render shows the real alignment.
   - A background the project already has may be pre-composited (darkened) and not match the design's `IMAGE fill + opacity`. Compare against the render; prefer the design's own image.
+- **Fidelity checklist** — details that routinely get dropped; account for each one the design has:
+  - Padding is per side and often asymmetric (`0/16/0/0` = right padding only); gaps come from the parent's item spacing (`0` is real). Auto-layout has no margins.
+  - Corner radius is per corner, stroke weight per side (`bottom: 1` = bottom border only) — don't round or border the whole box.
+  - Shadows/blur (effects), gradients, layer opacity, blend modes, rotation, clipping (`overflow-hidden`).
+  - Hidden layers: don't render them (they're usually other states).
+  - Text: letter spacing, text case, decoration, truncation/line clamp.
+  - Flex children: grow (`flex-1`), stretch (`self-stretch`), absolute-positioned inside auto-layout, wrap.
 
 **Existing-project rules** (all mandatory):
 1. **Reuse existing components** wherever one fits; record each one's name and file path for the report.
@@ -67,6 +77,7 @@ Ask with AskUserQuestion (max 4 questions per call): question 1 first, then the 
 - Serve it and screenshot at the frame's size (Playwright). **Measure** key boxes with `getBoundingClientRect()` rather than eyeballing — the browser may be zoomed (`devicePixelRatio ≠ 1`), which makes screenshots look off.
 - Compare with the frame render: layout, alignment, colors, asset positions/sizes. Fix mismatches in scope; list out-of-scope ones without changing them.
 - If responsive, screenshot each screen size the user gave; check one interaction (e.g. empty-submit validation).
+- Grep the new/changed files for hex colors and `px` literals; each one must map to a token or be a reported off-theme value.
 - Clean up: stop any server you started, delete temp downloads/screenshots, don't commit unless asked.
 
 ## 6. Report
