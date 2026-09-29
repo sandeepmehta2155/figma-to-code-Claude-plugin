@@ -36,6 +36,15 @@ If the repo is private, each user needs read access to it on GitHub, plus workin
 ```
 Add the target if it isn't obvious: "…into apps/admin, route /signin" or "…as standalone HTML".
 
+### No MCP quota? Export from inside Figma instead
+
+The [LLM Export](https://github.com/Gamma-Software/figma-llm-export) Figma plugin (MIT) reads the design through Figma's plugin API: no token, no rate limit, any plan, and it includes **variable (token) names**, which the REST API only gives on Enterprise. Needs the Figma desktop app and (probably) edit access to the file.
+
+1. `git clone https://github.com/Gamma-Software/figma-llm-export && cd figma-llm-export && npm install && npm run build`
+2. Figma desktop → Plugins → Development → Import plugin from manifest… → pick its `manifest.json`.
+3. Select the frame → run **LLM Export** → **Download LLM bundle** (not "Download JSON", which drops the images).
+4. `/implement-design ./path/to/bundle.json`
+
 ## Layout
 
 ```
@@ -44,4 +53,5 @@ plugins/figma-to-code/
   .claude-plugin/plugin.json
   .mcp.json                         # figma-view = figma-developer-mcp (pinned)
   skills/implement-design/SKILL.md  # the workflow
+  skills/implement-design/scripts/split_payload.py  # LLM Export bundle → JSON + image files
 ```

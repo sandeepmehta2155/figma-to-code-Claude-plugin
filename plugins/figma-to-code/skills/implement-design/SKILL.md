@@ -1,13 +1,23 @@
 ---
 name: implement-design
-description: Implement a Figma frame as code in the current project (or as standalone HTML). Use when the user pastes a figma.com design/proto link and asks to build, implement, or convert it. Uses the official Figma MCP when it has access, falls back to the view-access `figma-view` MCP when the file is view-only or the Figma plan's MCP quota is spent.
+description: Implement a Figma frame as code in the current project (or as standalone HTML). Use when the user pastes a figma.com design/proto link, or points at a JSON export from the "LLM Export" Figma plugin, and asks to build, implement, or convert it. Uses the official Figma MCP when it has access, falls back to the view-access `figma-view` MCP when the file is view-only or the Figma plan's MCP quota is spent.
 ---
 
 # Figma → code
 
-Input: a Figma URL (`$ARGUMENTS`), plus optionally a target (app path, route, or "standalone HTML").
+Input: a Figma URL or an LLM Export `.json` file (`$ARGUMENTS`), plus optionally a target (app path, route, or "standalone HTML").
 
-## 1. Parse the link
+## 1. Parse the input
+
+**LLM Export payload** (a `.json` with `"source": "figma"`, `nodes`, `images`) — no MCP, no quota, works on any Figma plan. Don't `Read` it raw (base64 images can be megabytes). Split it first:
+
+```bash
+python3 <this-skill-dir>/scripts/split_payload.py <payload.json> <tmp-dir>
+```
+
+Then read `<tmp-dir>/payload.json` and the extracted `.png`/`.svg` files, and skip step 3. The PNG of the top-level selected node is the frame render; SVGs are icon markup to reuse as-is. Any styled value bound to a Figma variable appears as `{ "value": …, "variable": "Collection/name" }`; `variables[]` lists every referenced variable with its per-mode values. Instances carry `mainComponent` and `componentProperties`. If `images` have no files (the user used "Download JSON" instead of "Download LLM bundle"), ask for the bundle or a frame screenshot.
+
+**Figma link:**
 
 - `figma.com/design/<fileKey>/…` and `figma.com/proto/<fileKey>/…` both work.
 - `figma.com/design/<fileKey>/branch/<branchKey>/…` → use `branchKey` as the file key.
@@ -49,7 +59,7 @@ Ask with AskUserQuestion (max 4 questions per call): question 1 first, then the 
 ## 4. Implement
 
 - Build with the project's own stack: its components, tokens, form library, icon set, routing.
-- **Tokens: map the variable, not the value.** Official path: map each Figma variable to the project token by name (`Theme/text-primary` → `--text-primary` / `text-text-primary`); the collection prefix is noise, the leaf name is the key. Bind the token, not the light/dark value — the app's theme switch handles modes. `figma-view` path has no variable bindings, so map by exact value instead. Either way, add a token only when none matches.
+- **Tokens: map the variable, not the value.** Official path and LLM Export payloads: map each Figma variable to the project token by name (`Theme/text-primary` → `--text-primary` / `text-text-primary`); the collection prefix is noise, the leaf name is the key. Bind the token, not the light/dark value — the app's theme switch handles modes. `figma-view` path has no variable bindings, so map by exact value instead. Either way, add a token only when none matches.
 - **Instances → components.** A component instance's name and variant properties tell you which project component to use and which props to pass. Hidden sibling layers and other variants hint at hover/active/disabled/selected states — implement those states; selected vs unselected is one component with a prop, not two elements.
 - Translate absolute positions into real layout (flex/grid). If responsive, make it work at every screen size the user gave.
 - Wire the obvious interactions: inputs, submit, show/hide password, links (`<a href>` / framework `Link`, not click-handlers, for navigation).
@@ -82,7 +92,7 @@ Ask with AskUserQuestion (max 4 questions per call): question 1 first, then the 
 
 ## 6. Report
 
-What was built and where, which MCP path was used (official or `figma-view`) and why, what's not wired (e.g. no real API call), and any remaining differences from the design.
+What was built and where, which source was used (official MCP, `figma-view`, or LLM Export payload) and why, what's not wired (e.g. no real API call), and any remaining differences from the design.
 
 Existing project — also list:
 - **Reused components**: name + path for each.
