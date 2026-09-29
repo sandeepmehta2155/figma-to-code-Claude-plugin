@@ -15,11 +15,14 @@ Input: a Figma URL (`$ARGUMENTS`), plus optionally a target (app path, route, or
 
 ## 2. Ask before fetching much
 
-Ask these in one go (AskUserQuestion); skip any the user already answered:
+Ask with AskUserQuestion (max 4 questions per call): question 1 first, then the remaining ones that apply in a second call. Skip any the user already answered:
 
 1. **Fresh project or existing project?**
 2. **Fresh only — tech stack?** (e.g. React + Tailwind, Next.js, Vue, Angular, plain HTML/CSS). Existing projects use their own stack; don't ask.
-3. **Responsive?** If yes, **which screen sizes** (e.g. 390 / 768 / 1280 / 1440px). If no, build at the frame's width only.
+3. **Responsive?** If yes, **which screen sizes** (e.g. 390 / 768 / 1280 / 1440px), and **a frame link per size** if the file has them. Sizes without a frame get an inferred layout, flagged as "inferred, not designed" in the report. If no, build at the frame's width only.
+4. **Scope?** Static UI only / UI + mock data & state / wired to a real API (user names the endpoint).
+5. **Where does it go?** Fresh: project folder name. Existing: route or file path, and whether it replaces an existing screen or is new.
+6. **Existing only — off-theme values?** Match Figma exactly and comment each deviation (default) / snap to the closest theme token and list deviations in the report.
 
 **Existing project** — then:
 - Read its `package.json`, styling config (Tailwind config / CSS tokens / theme), and component folders.
@@ -57,7 +60,7 @@ Ask these in one go (AskUserQuestion); skip any the user already answered:
 2. **Consistency across pages** — the same UI element uses the same component everywhere; don't create a near-duplicate of one that already exists. If the design differs slightly, extend the existing component via props/variants rather than forking it.
 3. **Don't break existing code** — never change an existing component's default behavior or public props in a breaking way; add optional props/variants instead. Run the project's typecheck, lint, and tests afterwards and fix anything you broke.
 4. **Not feasible with the existing code?** (e.g. the component library can't do it, a needed dependency conflicts, it would require a breaking change) → stop on that part, tell the user **why**, and offer 1–3 alternatives (closest match with existing components, extend component X, add library Y) before proceeding.
-5. **Off-theme design** (colors, fonts, spacing, radii not in the project's theme/tokens) → tell the user each deviation, and put a comment in the code at that spot, e.g. `/* OFF-THEME: #3B5BDB not in theme tokens (closest: primary-600) — per Figma design */`.
+5. **Off-theme design** (colors, fonts, spacing, radii not in the project's theme/tokens) → tell the user each deviation. If the user chose "match Figma", put a comment in the code at that spot, e.g. `/* OFF-THEME: #3B5BDB not in theme tokens (closest: primary-600) — per Figma design */`. If they chose "snap to theme", use the closest token and list the Figma value vs token used in the report.
 
 ## 5. Verify
 
@@ -73,6 +76,7 @@ What was built and where, which MCP path was used (official or `figma-view`) and
 Existing project — also list:
 - **Reused components**: name + path for each.
 - **New / extended components**: what was added and why no existing one fit.
-- **Off-theme changes**: each deviation and where it's commented.
+- **Off-theme changes**: each deviation and where it's commented (or which token it was snapped to).
+- **Inferred screen sizes**: any responsive size built without a Figma frame.
 - **Not feasible**: what, why, and the alternative taken.
 - Typecheck / lint / test results.
