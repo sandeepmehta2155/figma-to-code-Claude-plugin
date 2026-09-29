@@ -1,5 +1,5 @@
 ---
-name: design-to-code
+name: implement-design
 description: Implement a Figma frame as code in the current project (or as standalone HTML). Use when the user pastes a figma.com design/proto link and asks to build, implement, or convert it. Uses the official Figma MCP when it has access, falls back to the view-access `figma-view` MCP when the file is view-only or the Figma plan's MCP quota is spent.
 ---
 

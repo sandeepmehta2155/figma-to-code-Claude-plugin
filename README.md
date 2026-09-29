@@ -6,7 +6,7 @@ One plugin, `figma-to-code`: paste a Figma frame link, get code in your project.
 Figma file ──▶ official Figma MCP (needs edit access, plan quota)
           └──▶ figma-view MCP (fallback: view access + API token)
                     ▼
-             Claude Code  /figma-to-code:design-to-code <link>
+             Claude Code  /implement-design <link>
                     ▼
              your project (Next.js, …) or standalone HTML
 ```
@@ -32,7 +32,7 @@ If the repo is private, each user needs read access to it on GitHub, plus workin
 ## Use
 
 ```
-/figma-to-code:design-to-code https://www.figma.com/design/<fileKey>/<name>?node-id=1-2
+/implement-design https://www.figma.com/design/<fileKey>/<name>?node-id=1-2
 ```
 Add the target if it isn't obvious: "…into apps/admin, route /signin" or "…as standalone HTML".
 
@@ -43,5 +43,5 @@ Add the target if it isn't obvious: "…into apps/admin, route /signin" or "…a
 plugins/figma-to-code/
   .claude-plugin/plugin.json
   .mcp.json                         # figma-view = figma-developer-mcp (pinned)
-  skills/design-to-code/SKILL.md    # the workflow
+  skills/implement-design/SKILL.md  # the workflow
 ```
