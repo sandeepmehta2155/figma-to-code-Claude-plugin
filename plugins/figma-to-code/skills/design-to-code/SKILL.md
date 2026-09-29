@@ -13,11 +13,20 @@ Input: a Figma URL (`$ARGUMENTS`), plus optionally a target (app path, route, or
 - `figma.com/design/<fileKey>/branch/<branchKey>/…` → use `branchKey` as the file key.
 - `node-id=223-141` → node `223:141`. No `node-id` → ask for a frame link (right-click frame → Copy link to selection). Never guess a node.
 
-## 2. Decide the target before fetching much
+## 2. Ask before fetching much
 
-- Read the target project's `package.json`, styling config (Tailwind config / CSS tokens), and component folders.
+Ask these in one go (AskUserQuestion); skip any the user already answered:
+
+1. **Fresh project or existing project?**
+2. **Fresh only — tech stack?** (e.g. React + Tailwind, Next.js, Vue, Angular, plain HTML/CSS). Existing projects use their own stack; don't ask.
+3. **Responsive?** If yes, **which screen sizes** (e.g. 390 / 768 / 1280 / 1440px). If no, build at the frame's width only.
+
+**Existing project** — then:
+- Read its `package.json`, styling config (Tailwind config / CSS tokens / theme), and component folders.
 - **Search for an existing implementation first** (grep the design's headline text). If the screen already exists, report the diff against the design instead of building a second copy.
-- Target unclear (several apps, or the design's brand doesn't match the repo) → ask once, offering: which app/route, or standalone HTML.
+- Several apps/routes and unclear which → ask once.
+
+**Fresh project** — scaffold with the chosen stack's official starter (e.g. `npm create vite@latest`), nothing extra.
 
 ## 3. Fetch the design — official first, fallback second
 
@@ -36,20 +45,34 @@ Input: a Figma URL (`$ARGUMENTS`), plus optionally a target (app path, route, or
 ## 4. Implement
 
 - Build with the project's own stack: its components, tokens, form library, icon set, routing. Map Figma hex values onto existing tokens when they match exactly; add a token only when none matches.
-- Translate absolute positions into real layout (flex/grid); make it responsive (check ~390px wide).
+- Translate absolute positions into real layout (flex/grid). If responsive, make it work at every screen size the user gave.
 - Wire the obvious interactions: inputs, submit, show/hide password, links (`<a href>` / framework `Link`, not click-handlers, for navigation).
 - Use every asset in its design slot at its design size. Never redraw an exported asset; never ship a temporary Figma asset URL.
 - **Trust the rendered frame over node properties.** Two traps seen in practice:
   - `textAlignHorizontal: CENTER` on a hug-width text node is invisible — the render shows the real alignment.
   - A background the project already has may be pre-composited (darkened) and not match the design's `IMAGE fill + opacity`. Compare against the render; prefer the design's own image.
 
+**Existing-project rules** (all mandatory):
+1. **Reuse existing components** wherever one fits; record each one's name and file path for the report.
+2. **Consistency across pages** — the same UI element uses the same component everywhere; don't create a near-duplicate of one that already exists. If the design differs slightly, extend the existing component via props/variants rather than forking it.
+3. **Don't break existing code** — never change an existing component's default behavior or public props in a breaking way; add optional props/variants instead. Run the project's typecheck, lint, and tests afterwards and fix anything you broke.
+4. **Not feasible with the existing code?** (e.g. the component library can't do it, a needed dependency conflicts, it would require a breaking change) → stop on that part, tell the user **why**, and offer 1–3 alternatives (closest match with existing components, extend component X, add library Y) before proceeding.
+5. **Off-theme design** (colors, fonts, spacing, radii not in the project's theme/tokens) → tell the user each deviation, and put a comment in the code at that spot, e.g. `/* OFF-THEME: #3B5BDB not in theme tokens (closest: primary-600) — per Figma design */`.
+
 ## 5. Verify
 
 - Serve it and screenshot at the frame's size (Playwright). **Measure** key boxes with `getBoundingClientRect()` rather than eyeballing — the browser may be zoomed (`devicePixelRatio ≠ 1`), which makes screenshots look off.
 - Compare with the frame render: layout, alignment, colors, asset positions/sizes. Fix mismatches in scope; list out-of-scope ones without changing them.
-- Check the narrow (~390px) layout and one interaction (e.g. empty-submit validation).
+- If responsive, screenshot each screen size the user gave; check one interaction (e.g. empty-submit validation).
 - Clean up: stop any server you started, delete temp downloads/screenshots, don't commit unless asked.
 
 ## 6. Report
 
 What was built and where, which MCP path was used (official or `figma-view`) and why, what's not wired (e.g. no real API call), and any remaining differences from the design.
+
+Existing project — also list:
+- **Reused components**: name + path for each.
+- **New / extended components**: what was added and why no existing one fit.
+- **Off-theme changes**: each deviation and where it's commented.
+- **Not feasible**: what, why, and the alternative taken.
+- Typecheck / lint / test results.
