@@ -13,16 +13,21 @@ Figma file ──▶ official Figma MCP (needs edit access, plan quota)
 
 ## Install
 
-1. Create a Figma personal access token (Figma → Settings → Security → Personal access tokens, read-only file scope is enough) and export it in your shell profile:
-   ```bash
-   export FIGMA_API_KEY=figd_...
-   ```
-2. In Claude Code:
-   ```
-   /plugin marketplace add <path-or-git-url-of-this-repo>
-   /plugin install figma-to-code@tops-figma
-   ```
-3. Optional but recommended: also install the official Figma plugin (`/plugin install figma@claude-plugins-official`) — used first when you have edit access.
+Everyone needs their own Figma token first:
+```bash
+export FIGMA_API_KEY=figd_...     # add this line to ~/.bashrc or ~/.zshrc
+```
+Then, inside Claude Code:
+```
+/plugin marketplace add sandeepmehta2155/figma-to-code-marketplace
+/plugin install figma-to-code@tops-figma
+```
+Or from the terminal:
+```bash
+claude plugin marketplace add sandeepmehta2155/figma-to-code-marketplace
+claude plugin install figma-to-code@tops-figma
+```
+If the repo is private, each user needs read access to it on GitHub, plus working `git` credentials (SSH key or `gh auth login`).
 
 ## Use
 

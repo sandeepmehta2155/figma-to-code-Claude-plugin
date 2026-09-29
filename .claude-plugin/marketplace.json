@@ -9,7 +9,7 @@
       "name": "figma-to-code",
       "source": "./plugins/figma-to-code",
       "description": "Figma frame link → code in your project. Uses the official Figma MCP when it can, falls back to a view-access Figma MCP when it can't.",
-      "version": "0.1.0"
+      "version": "0.2.0"
     }
   ]
 }
