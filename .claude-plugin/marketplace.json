@@ -1,0 +1,15 @@
+{
+  "name": "tops-figma",
+  "description": "Figma design-to-code plugins for Claude Code.",
+  "owner": {
+    "name": "Sandeep Mehta"
+  },
+  "plugins": [
+    {
+      "name": "figma-to-code",
+      "source": "./plugins/figma-to-code",
+      "description": "Figma frame link → code in your project. Uses the official Figma MCP when it can, falls back to a view-access Figma MCP when it can't.",
+      "version": "0.1.0"
+    }
+  ]
+}
