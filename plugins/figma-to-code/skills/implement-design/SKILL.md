@@ -7,21 +7,47 @@ description: Implement a Figma frame as code in the current project (or as stand
 
 Input: a Figma URL or an LLM Export `.json` file (`$ARGUMENTS`), plus optionally a target (app path, route, or "standalone HTML").
 
-## 1. Parse the input
+## 1. Hard gate — can this be built?
 
-**LLM Export payload** (a `.json` with `"source": "figma"`, `nodes`, `images`) — no MCP, no quota, works on any Figma plan. Don't `Read` it raw (base64 images can be megabytes). Split it first:
+Runs first, on every input. **Nothing else happens until it passes** — no questions, no scaffolding, no code. Blockers surface now, not mid-build.
+
+**Parse the input.**
+
+LLM Export payload (a `.json` with `"source": "figma"`, `nodes`, `images`) — no MCP, no quota, works on any Figma plan. Don't `Read` it raw (base64 images can be megabytes). Split it first:
 
 ```bash
 python3 <this-skill-dir>/scripts/split_payload.py <payload.json> <tmp-dir>
 ```
 
-Then read `<tmp-dir>/payload.json` and the extracted `.png`/`.svg` files, and skip step 3. The PNG of the top-level selected node is the frame render; SVGs are icon markup to reuse as-is. Any styled value bound to a Figma variable appears as `{ "value": …, "variable": "Collection/name" }`; `variables[]` lists every referenced variable with its per-mode values. Instances carry `mainComponent` and `componentProperties`. If `images` have no files (the user used "Download JSON" instead of "Download LLM bundle"), ask for the bundle or a frame screenshot.
+Then read `<tmp-dir>/payload.json` and the extracted `.png`/`.svg` files, and skip step 3. The PNG of the top-level selected node is the frame render; SVGs are icon markup to reuse as-is. Any styled value bound to a Figma variable appears as `{ "value": …, "variable": "Collection/name" }`; `variables[]` lists every referenced variable with its per-mode values. Instances carry `mainComponent` and `componentProperties`.
 
-**Figma link:**
+Figma link:
 
 - `figma.com/design/<fileKey>/…` and `figma.com/proto/<fileKey>/…` both work.
 - `figma.com/design/<fileKey>/branch/<branchKey>/…` → use `branchKey` as the file key.
-- `node-id=223-141` → node `223:141`. No `node-id` → ask for a frame link (right-click frame → Copy link to selection). Never guess a node.
+- `node-id=223-141` → node `223:141`. Never guess a node.
+
+**Probe.** Spends no extra quota: the design fetch *is* the probe. Run step 3's first fetch (official MCP, else `get_figma_data`) now, then download every asset (step 3 lists which) into `.figma-assets/` in the directory Claude Code was started in — the project's asset folder isn't known until step 2. Step 3 reuses all of it.
+
+| Check | How | ✗ blocked / ⚠ degraded → tell the user |
+|---|---|---|
+| Frame link | `node-id` present | ✗ right-click the frame → Copy link to selection |
+| Token (only if official MCP unavailable/failed) | `[ -n "$FIGMA_API_KEY" ]` in Bash | ✗ add `export FIGMA_API_KEY=figd_…` to the shell profile, restart Claude Code |
+| Design data | the fetch succeeds | ✗ 403 → token expired / lacks file read scope, or no view access. 404 → wrong file/node. 429 → rate-limited, wait or use LLM Export. ⚠ official MCP refused (edit access/quota) but `figma-view` worked → no variable names below Enterprise, tokens matched by value |
+| Bundle images (LLM Export only) | `images` have files | ✗ used "Download JSON" — re-export with "Download LLM bundle" |
+| Frame render | the whole-frame PNG downloads (LLM Export: the top node's PNG) | ⚠ step 5 has nothing to compare against → ask the user for a frame screenshot |
+| Assets | every asset downloads (LLM Export: every asset has an extracted file) | ⚠ any missing (export restricted for viewers, rate limit, expired URL) → ask **Missing assets** below, now |
+| Fonts | font families in the data | ⚠ not a Google Font → user supplies the font files, or accept a fallback (text widths will drift) |
+| Verify | a Playwright MCP is available | ⚠ step 5 can only eyeball, not measure |
+
+**Decide.** Print one line per check (✓ / ⚠ / ✗) and the source that worked.
+- **Any ✗ → stop.** Ask with AskUserQuestion: fixed it, re-run the gate (Recommended) / switch to an LLM Export bundle (README) / stop. Never continue past a ✗.
+- **Only ⚠ →** list what each one costs, then ask: proceed degraded / fix it and re-run the gate / stop. Missing assets get their own question (below) instead, in the same AskUserQuestion call.
+- **All ✓ →** continue to step 2 without asking.
+
+**Missing assets** — don't redraw them. List each one: node name, node id, type (photo / icon / logo), design size, and the filename it'll use (e.g. `hero-bg.png`, `logo.svg`). Ask with AskUserQuestion:
+1. **I'll export them (Recommended)** — user opens the Figma link in the browser (view access is enough), selects each layer → Export panel (bottom right) → PNG @2x for photos, SVG for icons/logos → saves them into `.figma-assets/` with the listed filenames, then says "done". Check every file exists; anything still missing becomes a placeholder.
+2. **Use placeholders** — built in step 4. Each placeholder sits in the asset's slot at its exact design size and radius, with no external service: a local neutral SVG (light gray box, the asset's name as label, diagonal cross for photos) saved under the listed filename, so swapping in the real file later needs no code change. Mark each with a comment, e.g. `<!-- PLACEHOLDER: hero-bg.png (1440×720), export from Figma node 223:150 -->`.
 
 ## 2. Ask before fetching much
 
@@ -43,29 +69,42 @@ Ask with AskUserQuestion (max 4 questions per call): question 1 first, then the 
 
 ## 3. Fetch the design — official first, fallback second
 
+The gate already fetched the design and the assets; reuse them, don't fetch again. This step says what to fetch; once the project exists (step 2), move `.figma-assets/` into its asset dir (e.g. `public/images/…`), keep the frame PNG out of the project, and delete `.figma-assets/`.
+
 **Official Figma MCP** (tools named `…figma…get_design_context`, from the official `figma` plugin), if installed:
-- `get_design_context(fileKey, nodeId)` with the screenshot included.
+- `get_design_context(fileKey, nodeId)` with the screenshot included; download the asset URLs it returns.
 - `get_variable_defs(fileKey, nodeId)` → the Figma variables (design tokens) the frame uses, by name.
 - If it errors with **"don't have edit access"** or a **rate limit**: do NOT retry it — each call spends the user's monthly quota (Starter/View/Collab seats get very few). Go to the fallback.
 
 **Fallback: `figma-view` MCP** (this plugin; needs only view access + `FIGMA_API_KEY`):
 - `get_figma_data(fileKey, nodeId)` → layout tree, text, colors, fonts, spacing, radii, shadows.
-- `download_figma_images` — it can only write inside the directory Claude Code was started in, so download into the project's asset dir (e.g. `public/images/…`) or a temp dir you delete afterwards. Fetch:
+- `download_figma_images` — it can only write inside the directory Claude Code was started in. Fetch:
   - the **whole frame** as PNG (`pngScale: 1`) → the visual target, kept out of the project;
   - every `IMAGE` fill node, passing its `imageRef`;
   - every `IMAGE-SVG` node as `.svg` (logos, icons).
 - Compress big photo exports before shipping (e.g. `cwebp -q 80 -resize 2560 0`).
 
-**Assets not accessible?** (image download fails or is rate-limited, asset URLs expire, or the design data came without images) — don't redraw them and don't stall. List each missing asset: node name, node id, type (photo / icon / logo), design size, and the filename you'll use (e.g. `assets/hero-bg.png`, `assets/logo.svg`). Then ask with AskUserQuestion:
-1. **I'll export them (Recommended)** — user opens the Figma link in the browser (view access is enough), selects each layer → Export panel (bottom right) → PNG @2x for photos, SVG for icons/logos → saves them into the project's asset folder with the listed filenames, then says "done". Check every file exists and wire them in; anything still missing falls back to option 2.
-2. **Use placeholders** — build now. Each placeholder sits in the asset's slot at its exact design size and radius, with no external service: a local neutral SVG (light gray box, the asset's name as label, diagonal cross for photos) saved under the listed filename, so swapping in the real file later needs no code change. Mark each with a comment, e.g. `<!-- PLACEHOLDER: hero-bg.png (1440×720), export from Figma node 223:150 -->`.
-
 ## 4. Implement
 
 - Build with the project's own stack: its components, tokens, form library, icon set, routing.
-- **Tokens: map the variable, not the value.** Official path and LLM Export payloads: map each Figma variable to the project token by name (`Theme/text-primary` → `--text-primary` / `text-text-primary`); the collection prefix is noise, the leaf name is the key. Bind the token, not the light/dark value — the app's theme switch handles modes. `figma-view` path has no variable bindings, so map by exact value instead. Either way, add a token only when none matches.
+- **React / Next.js** — read `<this-skill-dir>/references/react/README.md` before writing components; open only the rule files it points to for what you're building. Existing-project conventions still win where they conflict.
+- **shadcn/ui** (project has `components.json`) — read `<this-skill-dir>/references/shadcn/README.md`; map Figma instances to shadcn components and their variants, not hand-built lookalikes.
+- **Tailwind v4** (CSS has `@import "tailwindcss"`) — read `<this-skill-dir>/references/tailwind-v4.md` before adding tokens.
+- **Tokens: map the variable, not the value.** Official path and LLM Export payloads: map each Figma variable to the project token by name (`Theme/text-primary` → `--text-primary` / `text-text-primary`); the collection prefix is noise, the leaf name is the key. Bind the token, not the light/dark value — the app's theme switch handles modes. `figma-view` path has no variable bindings, so map by exact value instead. Either way, add a token only when none matches. Tokens generated from JSON (Style Dictionary / Tokens Studio: `$value` token files, a `style-dictionary` build script) → add to the source JSON and rebuild, never hand-edit the generated CSS.
 - **Instances → components.** A component instance's name and variant properties tell you which project component to use and which props to pass. Hidden sibling layers and other variants hint at hover/active/disabled/selected states — implement those states; selected vs unselected is one component with a prop, not two elements.
-- Translate absolute positions into real layout (flex/grid). If responsive, make it work at every screen size the user gave.
+- Translate absolute positions into real layout (flex/grid). If responsive, make it work at every screen size the user gave. Auto-layout maps like this:
+
+  | Figma | CSS |
+  |---|---|
+  | `layoutMode` HORIZONTAL / VERTICAL / GRID | `flex` row / `flex` column / `grid` (`gridColumnsSizing` → `grid-template-columns`) |
+  | `itemSpacing` | `gap` — except with `SPACE_BETWEEN`, where the stored spacing is stale: use `justify-content: space-between`, no gap |
+  | `primaryAxisAlignItems` MIN / CENTER / MAX / SPACE_BETWEEN | `justify-content` start / center / flex-end / space-between |
+  | `counterAxisAlignItems` MIN / CENTER / MAX / BASELINE | `align-items` start / center / flex-end / baseline; every child FILL on the cross axis → `stretch` |
+  | child sizing FIXED / HUG / FILL | explicit size / no size (content) / `flex-1` on the main axis (`layoutGrow`), `align-self: stretch` on the cross axis (`layoutAlign: STRETCH`) |
+  | `layoutPositioning: ABSOLUTE` inside auto-layout | `position: absolute` at its offset from the parent; parent `position: relative` |
+  | `layoutWrap: WRAP` | `flex-wrap: wrap`; `counterAxisSpacing` → row gap |
+  | the **top-level frame's** FIXED width/height | not a real constraint — it's the artboard. Fill the container (`width: 100%`, `max-width` = design width if centered), don't pin it |
+  | text `letterSpacing` px | `em` = px ÷ font size (survives font-size changes) |
 - Wire the obvious interactions: inputs, submit, show/hide password, links (`<a href>` / framework `Link`, not click-handlers, for navigation).
 - Use every asset in its design slot at its design size. Never redraw an exported asset; never ship a temporary Figma asset URL.
 - **Trust the rendered frame over node properties.** Two traps seen in practice:
@@ -89,7 +128,8 @@ Ask with AskUserQuestion (max 4 questions per call): question 1 first, then the 
 
 ## 5. Verify
 
-- Serve it and screenshot at the frame's size (Playwright). **Measure** key boxes with `getBoundingClientRect()` rather than eyeballing — the browser may be zoomed (`devicePixelRatio ≠ 1`), which makes screenshots look off.
+- Serve it and screenshot at the frame's size (Playwright, viewport = frame width, `deviceScaleFactor` = the frame PNG's scale, clipped to the frame height).
+- **Pixel diff** — `node <this-skill-dir>/scripts/visual_diff.mjs <frame.png> <build.png> <diff.png>` (first run installs its two deps into the script's folder, not the project). It prints the mismatch % and writes a diff image with changed pixels in red; open the diff to see *where* the build drifts, then measure those spots. It refuses images of different sizes instead of resizing — fix the screenshot size, don't scale. Expect a few % from font rendering and live data; re-run after fixes to confirm the number drops. **Measure** key boxes with `getBoundingClientRect()` rather than eyeballing — the browser may be zoomed (`devicePixelRatio ≠ 1`), which makes screenshots look off.
 - Compare with the frame render: layout, alignment, colors, asset positions/sizes. For every table/column, compare the header's and cells' left **and** right edges with the render — right-aligned columns only show up on the right edge. Fix mismatches in scope; list out-of-scope ones without changing them.
 - If responsive, screenshot each screen size the user gave; check one interaction (e.g. empty-submit validation).
 - Grep the new/changed files for hex colors and `px` literals; each one must map to a token or be a reported off-theme value.

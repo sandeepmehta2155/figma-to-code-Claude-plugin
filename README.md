@@ -54,4 +54,8 @@ plugins/figma-to-code/
   .mcp.json                         # figma-view = figma-developer-mcp (pinned)
   skills/implement-design/SKILL.md  # the workflow
   skills/implement-design/scripts/split_payload.py  # LLM Export bundle → JSON + image files
+  skills/implement-design/references/react/         # React/Next.js rules (from vercel-labs/agent-skills, MIT)
+  skills/implement-design/references/shadcn/        # shadcn/ui rules (from shadcn-ui/ui, MIT)
+  skills/implement-design/references/tailwind-v4.md # Tailwind v4 token mapping
+  skills/implement-design/scripts/visual_diff.mjs   # pixel diff: Figma render vs build (pixelmatch, ISC)
 ```
