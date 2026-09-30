@@ -30,7 +30,11 @@ Figma link:
 **Quota — show the cost before spending it** (Figma links only; LLM Export bundles use none). Figma has no usage API: remaining quota is never visible, and rate-limit details only arrive on a 429. So, before the first Figma call:
 1. Run `python3 <this-skill-dir>/scripts/figma_usage.py summary` — this plugin's own tally for the last 30 days (this machine only, so a lower bound).
 2. Estimate this run: `figma-view` = 1 `get_figma_data` + 1 image request per format (PNG, SVG) — all Tier 1 — plus 1 Tier 2 request if there are photo fills; the official MCP = its own quota, 1 call per tool used.
-3. Tell the user both in one line, e.g. *"This run ≈ 3 Tier-1 requests. Logged here in the last 30 days: 7. View/Collab seats get up to 20 Tier-1 a month (sometimes lower); Dev/Full get 10–20 a minute. Limits follow the plan that owns the file."* Don't ask — continue unless they object. If the tally plus this run would pass 20, recommend an LLM Export bundle (no quota) first.
+3. Show both in one line, e.g. *"This run ≈ 3 Tier-1 requests. Logged here in the last 30 days: 7. View/Collab seats get up to 20 Tier-1 a month (sometimes lower); Dev/Full get 10–20 a minute. Limits follow the plan that owns the file."*
+4. **Ask which source to use** (AskUserQuestion; skip if the user already said):
+   - **Fetch via Figma API** — costs the requests above. Recommended when the official MCP works or the user has a Dev/Full seat.
+   - **Export with the LLM Export plugin** — no quota, no token, includes variable (token) names. Recommended when the tally plus this run would pass 20, on a free/Starter file, or after any 429.
+   - Picked the plugin → give these steps, then wait: open the link in Figma (browser or desktop) → select the frame → Actions (`Ctrl/⌘ + /`) → search **LLM Export** → run it → **Download LLM bundle** (not "Download JSON", which drops the images) → say "done". Not in Actions → install it: see the README's LLM Export section. Then use the path the user gives, or the newest `.json` in `~/Downloads` containing `"source": "figma"` — confirm the filename with the user — and restart the gate with that bundle.
 
 After **every** Figma call (success or failure), log it: `python3 <this-skill-dir>/scripts/figma_usage.py log <figma-view|official-mcp> <tier1|tier2|mcp> <requests> <fileKey>`.
 

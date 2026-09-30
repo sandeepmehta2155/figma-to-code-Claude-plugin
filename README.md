@@ -38,12 +38,13 @@ Add the target if it isn't obvious: "…into apps/admin, route /signin" or "…a
 
 ### No MCP quota? Export from inside Figma instead
 
-The [LLM Export](https://github.com/Gamma-Software/figma-llm-export) Figma plugin (MIT) reads the design through Figma's plugin API: no token, no rate limit, any plan, and it includes **variable (token) names**, which the REST API only gives on Enterprise. Needs the Figma desktop app and (probably) edit access to the file.
+The [LLM Export](https://github.com/Gamma-Software/figma-llm-export) Figma plugin (MIT) reads the design through Figma's plugin API: no token, no rate limit, any plan, and it includes **variable (token) names**, which the REST API only gives on Enterprise. Plugins generally need edit access, so work in a file you can edit (if you only have view access, duplicate the file to your drafts, when the owner allows copying).
 
-1. `git clone https://github.com/Gamma-Software/figma-llm-export && cd figma-llm-export && npm install && npm run build`
-2. Figma desktop → Plugins → Development → Import plugin from manifest… → pick its `manifest.json`.
-3. Select the frame → run **LLM Export** → **Download LLM bundle** (not "Download JSON", which drops the images).
-4. `/implement-design ./path/to/bundle.json`
+`/implement-design` offers this automatically when you give it a Figma link. To do it by hand:
+
+1. First time only, if **LLM Export** isn't in Figma's Actions menu: `git clone https://github.com/Gamma-Software/figma-llm-export && cd figma-llm-export && npm install && npm run build`, then Figma desktop → Plugins → Development → Import plugin from manifest… → pick its `manifest.json`.
+2. Select the frame → Actions (`Ctrl/⌘ + /`) → **LLM Export** → **Download LLM bundle** (not "Download JSON", which drops the images). It has also shown up in the browser's Actions menu after being set up.
+3. `/implement-design ~/Downloads/<bundle>.json`
 
 ## Layout
 

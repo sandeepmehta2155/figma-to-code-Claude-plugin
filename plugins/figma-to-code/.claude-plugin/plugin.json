@@ -1,7 +1,7 @@
 {
   "name": "figma-to-code",
   "description": "Figma frame link → code in your project. Uses the official Figma MCP when it can, falls back to a view-access Figma MCP when it can't.",
-  "version": "0.4.4",
+  "version": "0.4.5",
   "author": {
     "name": "Sandeep Mehta"
   }
