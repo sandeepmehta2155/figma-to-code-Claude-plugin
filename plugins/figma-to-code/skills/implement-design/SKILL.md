@@ -69,7 +69,7 @@ Ask with AskUserQuestion (max 4 questions per call): question 1 first, then the 
 - Wire the obvious interactions: inputs, submit, show/hide password, links (`<a href>` / framework `Link`, not click-handlers, for navigation).
 - Use every asset in its design slot at its design size. Never redraw an exported asset; never ship a temporary Figma asset URL.
 - **Trust the rendered frame over node properties.** Two traps seen in practice:
-  - `textAlignHorizontal: CENTER` on a hug-width text node is invisible — the render shows the real alignment.
+  - `textAlignHorizontal: CENTER` on a hug-width text node is invisible — the render shows the real alignment. On a fixed-width or fill text node it *is* real — keep it.
   - A background the project already has may be pre-composited (darkened) and not match the design's `IMAGE fill + opacity`. Compare against the render; prefer the design's own image.
 - **Fidelity checklist** — details that routinely get dropped; account for each one the design has:
   - Padding is per side and often asymmetric (`0/16/0/0` = right padding only); gaps come from the parent's item spacing (`0` is real). Auto-layout has no margins.
@@ -77,6 +77,7 @@ Ask with AskUserQuestion (max 4 questions per call): question 1 first, then the 
   - Shadows/blur (effects), gradients, layer opacity, blend modes, rotation, clipping (`overflow-hidden`).
   - Hidden layers: don't render them (they're usually other states).
   - Text: letter spacing, text case, decoration, truncation/line clamp.
+  - Tables / column lists: each column's alignment (numbers are often right-aligned) — header and cells share it, so align both. Take each column's width from the design, wide enough for its widest cell *including the header*; a `nowrap` header wider than its grid track overflows and breaks the alignment.
   - Flex children: grow (`flex-1`), stretch (`self-stretch`), absolute-positioned inside auto-layout, wrap.
 
 **Existing-project rules** (all mandatory):
@@ -89,7 +90,7 @@ Ask with AskUserQuestion (max 4 questions per call): question 1 first, then the 
 ## 5. Verify
 
 - Serve it and screenshot at the frame's size (Playwright). **Measure** key boxes with `getBoundingClientRect()` rather than eyeballing — the browser may be zoomed (`devicePixelRatio ≠ 1`), which makes screenshots look off.
-- Compare with the frame render: layout, alignment, colors, asset positions/sizes. Fix mismatches in scope; list out-of-scope ones without changing them.
+- Compare with the frame render: layout, alignment, colors, asset positions/sizes. For every table/column, compare the header's and cells' left **and** right edges with the render — right-aligned columns only show up on the right edge. Fix mismatches in scope; list out-of-scope ones without changing them.
 - If responsive, screenshot each screen size the user gave; check one interaction (e.g. empty-submit validation).
 - Grep the new/changed files for hex colors and `px` literals; each one must map to a token or be a reported off-theme value.
 - Clean up: stop any server you started, delete temp downloads/screenshots, don't commit unless asked.
