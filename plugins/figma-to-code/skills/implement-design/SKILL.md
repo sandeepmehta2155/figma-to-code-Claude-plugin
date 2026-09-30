@@ -56,6 +56,10 @@ Ask with AskUserQuestion (max 4 questions per call): question 1 first, then the 
   - every `IMAGE-SVG` node as `.svg` (logos, icons).
 - Compress big photo exports before shipping (e.g. `cwebp -q 80 -resize 2560 0`).
 
+**Assets not accessible?** (image download fails or is rate-limited, asset URLs expire, or the design data came without images) — don't redraw them and don't stall. List each missing asset: node name, node id, type (photo / icon / logo), design size, and the filename you'll use (e.g. `assets/hero-bg.png`, `assets/logo.svg`). Then ask with AskUserQuestion:
+1. **I'll export them (Recommended)** — user opens the Figma link in the browser (view access is enough), selects each layer → Export panel (bottom right) → PNG @2x for photos, SVG for icons/logos → saves them into the project's asset folder with the listed filenames, then says "done". Check every file exists and wire them in; anything still missing falls back to option 2.
+2. **Use placeholders** — build now. Each placeholder sits in the asset's slot at its exact design size and radius, with no external service: a local neutral SVG (light gray box, the asset's name as label, diagonal cross for photos) saved under the listed filename, so swapping in the real file later needs no code change. Mark each with a comment, e.g. `<!-- PLACEHOLDER: hero-bg.png (1440×720), export from Figma node 223:150 -->`.
+
 ## 4. Implement
 
 - Build with the project's own stack: its components, tokens, form library, icon set, routing.
@@ -93,6 +97,8 @@ Ask with AskUserQuestion (max 4 questions per call): question 1 first, then the 
 ## 6. Report
 
 What was built and where, which source was used (official MCP, `figma-view`, or LLM Export payload) and why, what's not wired (e.g. no real API call), and any remaining differences from the design.
+
+**Placeholders** (if any): a table of filename, size, Figma node id — the user exports each from Figma under that exact filename to replace it, no code change needed.
 
 Existing project — also list:
 - **Reused components**: name + path for each.
