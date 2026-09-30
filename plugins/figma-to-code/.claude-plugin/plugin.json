@@ -1,7 +1,7 @@
 {
   "name": "figma-to-code",
   "description": "Figma frame link → code in your project. Uses the official Figma MCP when it can, falls back to a view-access Figma MCP when it can't. Also checks pages against Figma and syncs Figma variables into your theme.",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "author": {
     "name": "Sandeep Mehta"
   }

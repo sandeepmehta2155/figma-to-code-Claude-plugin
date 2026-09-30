@@ -65,7 +65,7 @@ After **every** Figma call (success or failure), log it: `python3 <this-skill-di
 Ask with AskUserQuestion (max 4 questions per call): question 1 first, then the remaining ones that apply in a second call. Skip any the user already answered:
 
 1. **Fresh project or existing project?**
-2. **Fresh only — tech stack?** (e.g. React + Tailwind, Next.js, Vue, Angular, plain HTML/CSS). Existing projects use their own stack; don't ask.
+2. **Fresh only — tech stack and component library?** (e.g. React + Tailwind + shadcn/ui (Recommended for React), Next.js + shadcn/ui, Vue + shadcn-vue, Angular + Angular Material, plain HTML/CSS). Existing projects use their own stack; don't ask.
 3. **Responsive?** If yes, **which screen sizes** (e.g. 390 / 768 / 1280 / 1440px), and **a frame link per size** if the file has them. Sizes without a frame get an inferred layout, flagged as "inferred, not designed" in the report. If no, build at the frame's width only.
 4. **Scope?** Static UI only / UI + mock data & state / wired to a real API (user names the endpoint).
 5. **Where does it go?** Fresh: project folder name. Existing: route or file path, and whether it replaces an existing screen or is new.
@@ -76,7 +76,7 @@ Ask with AskUserQuestion (max 4 questions per call): question 1 first, then the 
 - **Search for an existing implementation first** (grep the design's headline text). If the screen already exists, report the diff against the design instead of building a second copy.
 - Several apps/routes and unclear which → ask once.
 
-**Fresh project** — scaffold with the chosen stack's official starter (e.g. `npm create vite@latest`), nothing extra.
+**Fresh project** — scaffold with the chosen stack's official starter (e.g. `npm create vite@latest`), then init the chosen component library (e.g. `npx shadcn@latest init`), nothing else.
 
 ## 3. Fetch the design — official first, fallback second
 
@@ -102,6 +102,7 @@ The gate already fetched the design and the assets; reuse them, don't fetch agai
 - **shadcn/ui** (project has `components.json`) — read `<this-skill-dir>/references/shadcn/README.md`; map Figma instances to shadcn components and their variants, not hand-built lookalikes.
 - **Tailwind v4** (CSS has `@import "tailwindcss"`) — read `<this-skill-dir>/references/tailwind-v4.md` before adding tokens.
 - **Tokens: map the variable, not the value.** Official path and LLM Export payloads: map each Figma variable to the project token by name (`Theme/text-primary` → `--text-primary` / `text-text-primary`); the collection prefix is noise, the leaf name is the key. Bind the token, not the light/dark value — the app's theme switch handles modes. `figma-view` path has no variable bindings, so map by exact value instead. Either way, add a token only when none matches. Tokens generated from JSON (Style Dictionary / Tokens Studio: `$value` token files, a `style-dictionary` build script) → add to the source JSON and rebuild, never hand-edit the generated CSS.
+- **Interactive controls come from the component library, never hand-built or native.** Select/dropdown, combobox, menu, dialog, popover, tooltip, tabs, checkbox, radio, switch, slider, date picker, toast, accordion → the library's component (shadcn: `Select`, `DropdownMenu`, `Combobox`, `Dialog`, …), added if missing. A native `<select>` opens an OS popup that can't be styled to the design; a hand-rolled `div` dropdown misses keyboard, focus and ARIA. Existing project with no component library → that's rule 4 below: stop and offer to add one (shadcn/ui for React + Tailwind).
 - **Instances → components.** A component instance's name and variant properties tell you which project component to use and which props to pass. Hidden sibling layers and other variants hint at hover/active/disabled/selected states — implement those states; selected vs unselected is one component with a prop, not two elements.
 - Translate absolute positions into real layout (flex/grid). If responsive, make it work at every screen size the user gave. Auto-layout maps like this:
 
@@ -143,6 +144,8 @@ The gate already fetched the design and the assets; reuse them, don't fetch agai
 - **Pixel diff** — `node <this-skill-dir>/scripts/visual_diff.mjs <frame.png> <build.png> <diff.png>` (first run installs its two deps into the script's folder, not the project). It prints the mismatch % and writes a diff image with changed pixels in red; open the diff to see *where* the build drifts, then measure those spots. It refuses images of different sizes instead of resizing — fix the screenshot size, don't scale. Expect a few % from font rendering and live data; re-run after fixes to confirm the number drops. **Measure** key boxes with `getBoundingClientRect()` rather than eyeballing — the browser may be zoomed (`devicePixelRatio ≠ 1`), which makes screenshots look off.
 - Compare with the frame render: layout, alignment, colors, asset positions/sizes. For every table/column, compare the header's and cells' left **and** right edges with the render — right-aligned columns only show up on the right edge. Fix mismatches in scope; list out-of-scope ones without changing them.
 - If responsive, screenshot each screen size the user gave; check one interaction (e.g. empty-submit validation).
+- Grep the new/changed files for `<select`, `<dialog`, `<input type="checkbox|radio|range|date"` and click-toggled `div` menus; each one must be a library component instead (see step 4).
+- Open every dropdown/menu/dialog once and screenshot it open — the closed state hides a native or unstyled popup.
 - Grep the new/changed files for hex colors and `px` literals; each one must map to a token or be a reported off-theme value.
 - Clean up: stop any server you started, delete temp downloads/screenshots, don't commit unless asked.
 
@@ -153,7 +156,7 @@ What was built and where, which source was used (official MCP, `figma-view`, or 
 **Placeholders** (if any): a table of filename, size, Figma node id — the user exports each from Figma under that exact filename to replace it, no code change needed.
 
 Existing project — also list:
-- **Reused components**: name + path for each.
+- **Reused components**: name + path for each, including library components (e.g. shadcn `Select`).
 - **New / extended components**: what was added and why no existing one fit.
 - **Off-theme changes**: each deviation and where it's commented (or which token it was snapped to).
 - **Inferred screen sizes**: any responsive size built without a Figma frame.
