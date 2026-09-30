@@ -27,20 +27,27 @@ Figma link:
 - `figma.com/design/<fileKey>/branch/<branchKey>/…` → use `branchKey` as the file key.
 - `node-id=223-141` → node `223:141`. Never guess a node.
 
+**Quota — show the cost before spending it** (Figma links only; LLM Export bundles use none). Figma has no usage API: remaining quota is never visible, and rate-limit details only arrive on a 429. So, before the first Figma call:
+1. Run `python3 <this-skill-dir>/scripts/figma_usage.py summary` — this plugin's own tally for the last 30 days (this machine only, so a lower bound).
+2. Estimate this run: `figma-view` = 1 `get_figma_data` + 1 image request per format (PNG, SVG) — all Tier 1 — plus 1 Tier 2 request if there are photo fills; the official MCP = its own quota, 1 call per tool used.
+3. Tell the user both in one line, e.g. *"This run ≈ 3 Tier-1 requests. Logged here in the last 30 days: 7. View/Collab seats get up to 20 Tier-1 a month (sometimes lower); Dev/Full get 10–20 a minute. Limits follow the plan that owns the file."* Don't ask — continue unless they object. If the tally plus this run would pass 20, recommend an LLM Export bundle (no quota) first.
+
+After **every** Figma call (success or failure), log it: `python3 <this-skill-dir>/scripts/figma_usage.py log <figma-view|official-mcp> <tier1|tier2|mcp> <requests> <fileKey>`.
+
 **Probe.** Spends no extra quota: the design fetch *is* the probe. Run step 3's first fetch (official MCP, else `get_figma_data`) now, then download every asset (step 3 lists which) into `.figma-assets/` in the directory Claude Code was started in — the project's asset folder isn't known until step 2. Step 3 reuses all of it.
 
 | Check | How | ✗ blocked / ⚠ degraded → tell the user |
 |---|---|---|
 | Frame link | `node-id` present | ✗ right-click the frame → Copy link to selection |
 | Token (only if official MCP unavailable/failed) | `[ -n "$FIGMA_API_KEY" ]` in Bash | ✗ add `export FIGMA_API_KEY=figd_…` to the shell profile, restart Claude Code |
-| Design data | the fetch succeeds | ✗ 403 → token expired / lacks file read scope, or no view access. 404 → wrong file/node. 429 → rate-limited, wait or use LLM Export. ⚠ official MCP refused (edit access/quota) but `figma-view` worked → no variable names below Enterprise, tokens matched by value |
+| Design data | the fetch succeeds | ✗ 403 → token expired / lacks file read scope, or no view access. 404 → wrong file/node. 429 → rate-limited: show the user everything the error carries — `Retry-After` (as a wait time), `X-Figma-Plan-Tier`, `X-Figma-Rate-Limit-Type` (`low` = View/Collab seat, `high` = Dev/Full), `X-Figma-Upgrade-Link` — and the raw error text if the MCP hides the headers; then offer: wait and re-run / LLM Export / stop. Never retry on your own. ⚠ official MCP refused (edit access/quota) but `figma-view` worked → no variable names below Enterprise, tokens matched by value |
 | Bundle images (LLM Export only) | `images` have files | ✗ used "Download JSON" — re-export with "Download LLM bundle" |
 | Frame render | the whole-frame PNG downloads (LLM Export: the top node's PNG) | ⚠ step 5 has nothing to compare against → ask the user for a frame screenshot |
 | Assets | every asset downloads (LLM Export: every asset has an extracted file) | ⚠ any missing (export restricted for viewers, rate limit, expired URL) → ask **Missing assets** below, now |
 | Fonts | font families in the data | ⚠ not a Google Font → user supplies the font files, or accept a fallback (text widths will drift) |
 | Verify | a Playwright MCP is available | ⚠ step 5 can only eyeball, not measure |
 
-**Decide.** Print one line per check (✓ / ⚠ / ✗) and the source that worked.
+**Decide.** Print one line per check (✓ / ⚠ / ✗), the source that worked, and the quota used: *"Used 3 Figma requests (Tier 1: 3). Last 30 days: 10."* (re-run `summary`).
 - **Any ✗ → stop.** Ask with AskUserQuestion: fixed it, re-run the gate (Recommended) / switch to an LLM Export bundle (README) / stop. Never continue past a ✗.
 - **Only ⚠ →** list what each one costs, then ask: proceed degraded / fix it and re-run the gate / stop. Missing assets get their own question (below) instead, in the same AskUserQuestion call.
 - **All ✓ →** continue to step 2 without asking.

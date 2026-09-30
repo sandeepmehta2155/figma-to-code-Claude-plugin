@@ -58,4 +58,5 @@ plugins/figma-to-code/
   skills/implement-design/references/shadcn/        # shadcn/ui rules (from shadcn-ui/ui, MIT)
   skills/implement-design/references/tailwind-v4.md # Tailwind v4 token mapping
   skills/implement-design/scripts/visual_diff.mjs   # pixel diff: Figma render vs build (pixelmatch, ISC)
+  skills/implement-design/scripts/figma_usage.py    # local tally of Figma requests (~/.figma-to-code/usage.jsonl)
 ```
