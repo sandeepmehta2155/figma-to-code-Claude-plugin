@@ -7,6 +7,11 @@
       "env": {
         "FIGMA_API_KEY": "${FIGMA_API_KEY}"
       }
+    },
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@0.0.83", "--isolated", "--device", "Desktop Chrome HiDPI", "--output-dir", "${CLAUDE_PLUGIN_DATA}/playwright"]
     }
   }
 }
